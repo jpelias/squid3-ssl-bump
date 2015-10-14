@@ -1,0 +1,54 @@
+sudo apt-get install dpkg-dev
+sudo apt-get build-dep squid3
+sudo apt-get build-dep openssh
+sudo apt-get install libssl-dev libcrypto++-dev
+sudo apt-get build-dep openssl
+sudo apt-get source squid3
+sudo apt-get install devscripts build-essential fakeroot
+ 
+sudo apt-get install squid-langpack apache2
+ 
+cd squid3-3.4.8
+ 
+vi debian/rules
+ 
+# add the lines
+#                --enable-ssl \
+#                --enable-ssl-crtd \
+ 
+./configure
+ 
+fakeroot debian/rules binary
+ 
+ 
+# install
+cd ..
+dpkg -i *.deb
+ 
+ 
+/usr/lib/squid3/ssl_crtd -c -s /var/lib/ssl_db/
+chown -R proxy /var/lib/ssl_db
+ 
+#create ca certificate
+openssl req -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -keyout myCA.pem  -out myCA.pem
+ 
+#copy the public part of pem file and create a der file
+cp myCA.pem myCApublic.pem
+# remove the private part of myCApublic.pem
+openssl x509 -in myCApublic.pem -outform DER -out myCApublic.der
+ 
+ 
+# make sure these lines are present in squid.conf
+http_port 3128 ssl-bump generate-host-certificates=on dynamic_cert_mem_cache_size=4MB cert=/home/proxy/ssl_cert/myCA.pem
+http_port 3129  transparent
+http_port 3130 transparent ssl-bump generate-host-certificates=on dynamic_cert_mem_cache_size=4MB cert=/home/proxy/ssl_cert/myCA.pem
+ 
+acl bump_sites dstdomain .youtube.com .youtube.com.mx
+ssl_bump none localhost
+ssl_bump server-first bump_sites
+ssl_bump none all
+sslproxy_cert_error allow all
+sslproxy_flags DONT_VERIFY_PEER
+always_direct allow all
+ 
+#change firewall to redirect port 80 to 3129, port 443 to 3130
