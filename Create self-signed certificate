@@ -1,0 +1,43 @@
+Install Squid 3.4 with ssl bump on Debian 8 (Jessie)
+Create self-signed certificate (you will be asked to provide information that will be incorporated into your certificate):
+ 
+    using OpenSSL:
+ 
+    openssl req -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -keyout myCA.pem  -out myCA.pem
+ 
+    using GnuTLS certtool:
+ 
+    certtool --generate-privkey --outfile ca-key.pem
+ 
+    certtool --generate-self-signed --load-privkey ca-key.pem --outfile myCA.pem
+ 
+You can also specify some required additional CA's attributes in openssl.cfg to reduce the questions:
+ 
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+[ v3_ca ]
+keyUsage = cRLSign, keyCertSign
+ 
+Create a DER-encoded certificate to import into users' browsers
+ 
+    openssl x509 -in myCA.pem -outform DER -out myCA.der
+ 
+The result file (myCA.der) should be imported into the 'Authorities' section of users' browsers.
+ 
+For example, in FireFox:
+ 
+    Open 'Preferences'
+    Go to the 'Advanced' section, 'Encryption' tab
+    Press the 'View Certificates' button and go to the 'Authorities' tab
+    Press the 'Import' button, select the .der file that was created previously and pres 'OK'
+ 
+In theory, you must either import your root certificate into browsers or instruct users on how to do that. Unfortunately, it is apparently a common practice among well-known Root CAs to issue subordinate root certificates. If you have obtained such a subordinate root certificate from a Root CA already trusted by your users, you do not need to import your certificate into browsers. However, going down this path may result in removal of the well-known Root CA certificate from browsers around the world. Such a removal will make your local SslBump-based infrastructure inoperable until you import your certificate, but that may only be the beginning of your troubles. Will the affected Root CA go after you to recoup their world-wide damages? What will your users do when they learn that you have been decrypting their traffic without their consent?
+ 
+ 
+ 
+> openssl genrsa -des3 -out my.key 1024
+> openssl req -new -key my.key -out my.csr
+> openssl x509 -req -days 365 -in my.csr -signkey my.key -out my.crt
+> openssl pkcs12 -export -in my.crt -inkey my.key -out my.p12
+> openssl rsa -in my.key -out my.key
